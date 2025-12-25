@@ -17,13 +17,13 @@ export default function Home() {
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'connecting'>('disconnected')
   const [currentTrack, setCurrentTrack] = useState<string | null>(null)
   const [userId] = useState('user_123') // Hardcoded for demo
-  const [playlistId] = useState('playlist_1') // Hardcoded for demo
+  const [playlistId] = useState(42) // Hardcoded for demo
 
   // Fetch tracks from API
   useEffect(() => {
     const fetchTracks = async () => {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/playlists/playlist_1/tracks`)
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}api/playlists/${playlistId}/tracks`)
         const data = await response.json()
         setTracks(data)
       } catch (error) {
