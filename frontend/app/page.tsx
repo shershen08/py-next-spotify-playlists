@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 
 interface Track {
@@ -12,7 +12,7 @@ interface Track {
   image_url?: string
 }
 
-export default function Home() {
+function PlaylistContent() {
   const searchParams = useSearchParams()
   const playlistIdParam = searchParams.get('playlistId')
   const playlistId = playlistIdParam ? parseInt(playlistIdParam, 10) : 42
@@ -180,5 +180,21 @@ export default function Home() {
         </div>
       </div>
     </main>
+  )
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={
+      <main className="min-h-screen p-8">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center py-8 text-spotify-lightgrey">
+            Loading...
+          </div>
+        </div>
+      </main>
+    }>
+      <PlaylistContent />
+    </Suspense>
   )
 }
