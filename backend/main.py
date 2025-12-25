@@ -2,7 +2,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from dataclasses import dataclass, asdict
 from typing import List, Optional
-import redis.asyncio as redis
+from upstash_redis import Redis
 import json
 import logging
 import random
@@ -23,19 +23,15 @@ app.add_middleware(
 )
 
 # Redis client for state persistence
-redis_client: Optional[redis.Redis] = None
+redis_client: Optional[Redis] = None
 
 
 @app.on_event("startup")
 async def startup_event():
     global redis_client
     try:
-        redis_client = await redis.from_url(
-            "redis://localhost:6379",
-            encoding="utf-8",
-            decode_responses=True
-        )
-        logger.info("Connected to Redis")
+        redis_client = Redis.from_env()
+        logger.info("Connected to Upstash Redis")
     except Exception as e:
         logger.warning(f"Could not connect to Redis: {e}. Using in-memory fallback.")
         redis_client = None
@@ -43,8 +39,8 @@ async def startup_event():
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    if redis_client:
-        await redis_client.close()
+    # Upstash Redis doesn't require explicit closing
+    pass
 
 
 # Models
@@ -140,7 +136,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         "track_id": playback_state.track_id,
                         "position_ms": playback_state.position_ms
                     })
-                    await redis_client.set(key, value)
+                    redis_client.set(key, value)
                     logger.info(f"Saved playback state to Redis for user: {playback_state.user_id}")
                 else:
                     logger.warning("Redis not available, state not persisted")
@@ -182,7 +178,7 @@ async def get_playback_state(user_id: str):
         )
     if redis_client:
         key = f"playback:{user_id}"
-        data = await redis_client.get(key)
+        data = redis_client.get(key)
         if data:
             return json.loads(data)
     return {"message": "No playback state found"}
