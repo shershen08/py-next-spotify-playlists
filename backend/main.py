@@ -181,13 +181,6 @@ async def get_playback_state(user_id: str):
             status_code=400,
             detail="user_id parameter is required and cannot be empty"
         )
-    try:
-        int(user_id)
-    except ValueError:
-        raise HTTPException(
-            status_code=400,
-            detail="user_id must be a number"
-        )
     if redis_client:
         key = f"playback:{user_id}"
         data = redis_client.get(key)

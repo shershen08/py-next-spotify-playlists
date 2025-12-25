@@ -41,6 +41,44 @@ function PlaylistContent() {
     fetchTracks()
   }, [playlistId])
 
+  // Fetch and restore playback state
+  const fetchPlaybackState = useCallback(async () => {
+    if (!tracks.length || connectionStatus !== 'connected') return
+
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL
+      const response = await fetch(`${apiUrl}/api/playback/${userId}`)
+      const data = await response.json()
+
+      // Check if playback state exists (not the "No playback state found" message)
+      if (data.track_id && data.position_ms !== undefined) {
+        // Find the track in the tracks array
+        const track = tracks.find((t) => t.id === data.track_id)
+        
+        if (track) {
+          // Only restore if it's from the same playlist
+          if (data.playlist_id === playlistId) {
+
+            console.log('Restoring playback state:', { track: track.name, position: data.position_ms })
+            setCurrentTrack(track.id)
+            setCurrentTrackData(track)
+            setPositionMs(data.position_ms)
+            // Don't auto-play, let user resume manually
+            setIsPlaying(false)
+            console.log('Restored playback state:', { track: track.name, position: data.position_ms })
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching playback state:', error)
+    }
+  }, [tracks, connectionStatus, userId, playlistId])
+
+  // Restore playback state when tracks are loaded and websocket is connected
+  useEffect(() => {
+    fetchPlaybackState()
+  }, [fetchPlaybackState])
+
   // Setup WebSocket connection
   useEffect(() => {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL
