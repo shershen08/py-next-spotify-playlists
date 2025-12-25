@@ -27,7 +27,7 @@ function PlaylistContent() {
   useEffect(() => {
     const fetchTracks = async () => {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}api/playlists/${playlistId}/tracks`)
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/playlists/${playlistId}/tracks`)
         const data = await response.json()
         setTracks(data)
       } catch (error) {
