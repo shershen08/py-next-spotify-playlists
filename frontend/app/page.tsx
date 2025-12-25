@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, Suspense } from 'react'
+import { useEffect, useState, useCallback, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 
 interface Track {
@@ -21,6 +21,9 @@ function PlaylistContent() {
   const [ws, setWs] = useState<WebSocket | null>(null)
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'connecting'>('disconnected')
   const [currentTrack, setCurrentTrack] = useState<string | null>(null)
+  const [currentTrackData, setCurrentTrackData] = useState<Track | null>(null)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [positionMs, setPositionMs] = useState(0)
   const [userId] = useState('user_123') 
 
   // Fetch tracks from API
@@ -76,15 +79,13 @@ function PlaylistContent() {
   }, [])
 
   // Send playback state to backend
-  const handleTrackClick = (track: Track, index: number) => {
-    setCurrentTrack(track.id)
-
+  const sendPlaybackState = useCallback((trackId: string, position: number) => {
     if (ws && ws.readyState === WebSocket.OPEN) {
       const playbackState = {
         user_id: userId,
         playlist_id: playlistId,
-        track_id: track.id,
-        position_ms: 0, // Starting from beginning
+        track_id: trackId,
+        position_ms: position,
       }
 
       console.log('Sending playback state:', playbackState)
@@ -92,6 +93,60 @@ function PlaylistContent() {
     } else {
       console.error('WebSocket is not connected')
     }
+  }, [ws, userId, playlistId])
+
+  // Increment position when playing
+  useEffect(() => {
+    if (!isPlaying || !currentTrackData) return
+
+    const interval = setInterval(() => {
+      setPositionMs((prev) => {
+        const newPosition = prev + 1000
+        // Stop if we've reached the end of the track
+        if (newPosition >= currentTrackData.duration_ms) {
+          setIsPlaying(false)
+          return currentTrackData.duration_ms
+        }
+        return newPosition
+      })
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [isPlaying, currentTrackData])
+
+  // Heartbeat: send position every 5 seconds when playing
+  useEffect(() => {
+    if (!isPlaying || !currentTrack) return
+
+    const heartbeatInterval = setInterval(() => {
+      setPositionMs((currentPosition) => {
+        sendPlaybackState(currentTrack, currentPosition)
+        return currentPosition
+      })
+    }, 5000)
+
+    return () => clearInterval(heartbeatInterval)
+  }, [isPlaying, currentTrack, sendPlaybackState])
+
+  // Handle track click
+  const handleTrackClick = (track: Track, index: number) => {
+    setCurrentTrack(track.id)
+    setCurrentTrackData(track)
+    setPositionMs(0)
+    setIsPlaying(true)
+    sendPlaybackState(track.id, 0)
+  }
+
+  // Handle play/pause
+  const handlePlayPause = () => {
+    if (!currentTrack) return
+
+    if (isPlaying) {
+      setIsPlaying(false)
+    } else {
+      setIsPlaying(true)
+    }
+    sendPlaybackState(currentTrack, positionMs)
   }
 
   // Format duration from ms to mm:ss
@@ -117,6 +172,34 @@ function PlaylistContent() {
             </span>
           </div>
         </div>
+
+        {/* Player */}
+        {currentTrackData && (
+          <div className="mb-8 bg-spotify-darkgrey rounded-lg p-4">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={handlePlayPause}
+                className="w-12 h-12 rounded-full bg-spotify-green hover:bg-spotify-green/80 flex items-center justify-center transition-colors"
+                aria-label={isPlaying ? 'Pause' : 'Play'}
+              >
+                {isPlaying ? (
+                  <span className="text-black text-xl">⏸</span>
+                ) : (
+                  <span className="text-black text-xl ml-1">▶</span>
+                )}
+              </button>
+              <div className="flex-1">
+                <div className="font-medium text-white">{currentTrackData.name}</div>
+                <div className="text-sm text-spotify-lightgrey">{currentTrackData.artist}</div>
+                <div className="mt-2 flex items-center gap-2 text-xs text-spotify-lightgrey">
+                  <span>{formatDuration(positionMs)}</span>
+                  <span>/</span>
+                  <span>{formatDuration(currentTrackData.duration_ms)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Playlist Table */}
         <div className="bg-spotify-darkgrey rounded-lg p-4">

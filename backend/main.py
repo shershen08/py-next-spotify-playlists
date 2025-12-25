@@ -5,8 +5,13 @@ from typing import List, Optional
 from upstash_redis import Redis
 import json
 import logging
+import os
 import random
+from dotenv import load_dotenv
 from db import Track, MOCK_TRACKS
+
+# Load environment variables from .env file
+load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -30,8 +35,15 @@ redis_client: Optional[Redis] = None
 async def startup_event():
     global redis_client
     try:
-        redis_client = Redis.from_env()
-        logger.info("Connected to Upstash Redis")
+        redis_url = os.getenv("UPSTASH_REDIS_REST_URL")
+        redis_token = os.getenv("UPSTASH_REDIS_REST_TOKEN")
+
+        if redis_url and redis_token:
+            redis_client = Redis(url=redis_url, token=redis_token)
+            logger.info("Connected to Upstash Redis")
+        else:
+            logger.warning("Redis environment variables not set. Using in-memory fallback.")
+            redis_client = None
     except Exception as e:
         logger.warning(f"Could not connect to Redis: {e}. Using in-memory fallback.")
         redis_client = None
