@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 
 interface Track {
   id: string
@@ -12,12 +13,15 @@ interface Track {
 }
 
 export default function Home() {
+  const searchParams = useSearchParams()
+  const playlistIdParam = searchParams.get('playlistId')
+  const playlistId = playlistIdParam ? parseInt(playlistIdParam, 10) : 42
+
   const [tracks, setTracks] = useState<Track[]>([])
   const [ws, setWs] = useState<WebSocket | null>(null)
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'connecting'>('disconnected')
   const [currentTrack, setCurrentTrack] = useState<string | null>(null)
-  const [userId] = useState('user_123') // Hardcoded for demo
-  const [playlistId] = useState(42) // Hardcoded for demo
+  const [userId] = useState('user_123') 
 
   // Fetch tracks from API
   useEffect(() => {
@@ -32,11 +36,15 @@ export default function Home() {
     }
 
     fetchTracks()
-  }, [])
+  }, [playlistId])
 
   // Setup WebSocket connection
   useEffect(() => {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL
+    if (!apiUrl) {
+      console.error('API URL is not set')
+      return
+    }
     const wsUrl = apiUrl.replace(/^http/, 'ws')
     const websocket = new WebSocket(`${wsUrl}/ws`)
 
